@@ -4,62 +4,58 @@ use itertools::Itertools;
 
 fn main() {
     let (height, width) = read_header();
-    let garden = read_pattern(height, width);
+    let mut garden = read_pattern(height, width);
 
-    // convert to list of Positions
-    let mut lakes = Vec::<Position>::with_capacity(height * width);
-    for (i, line) in garden.iter().enumerate() {
-        for (j, c) in line.iter().enumerate() {
-            if *c == 'w' || *c == 'W' {
-                lakes.push(Position{x: j as i64, y: i as i64});
-            }
-        }
-    }
-
-    let mut count: usize = 0; // increment every time dfs_search_list is emptied
-    let mut dfs_search_list = Vec::<Position>::new();
-    while !lakes.is_empty() {
-        dfs_search_list.push(lakes.pop().unwrap());
-        while !dfs_search_list.is_empty() {
-            let start = dfs_search_list.pop().unwrap();
-            let next_positions = search_next_position(start, &lakes);
-            for p in next_positions {
-                match find_first_index(&p, &lakes) {
-                    Some(idx) => dfs_search_list.push(lakes.remove(idx)),
-                    None => panic!("{:?} not found in lakes", p),
-                }
-            }
-        }
+    let mut count = 0 as usize;
+    while let Some((x, y)) = find_first_water(&garden){
+        dfs(x, y, &mut garden);
         count = count + 1;
     }
 
-    println!("{} lakes", count)
+    println!("{} lakes found", count);
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
-struct Position {
-    x: i64,
-    y: i64,
-}
+fn dfs(x: usize, y: usize, lake: &mut Vec<Vec<char>>) {
+    let mut search_stack = Vec::new();
+    search_stack.push((x, y));
+    *(lake.get_mut(y).unwrap().get_mut(x).unwrap()) = '.';
 
-impl Position {
-    fn is_next(&self, p: &Self) -> bool {
-        (self.x - p.x).abs() <= 1 && (self.y - p.y).abs() <= 1
+    while let Some((x, y)) = search_stack.pop() {
+        // search adjacent w
+        for i in vec![y as i64 -1, y as i64, y as i64 +1] {
+            if i < 0 { continue; }
+            match lake.get_mut(i as usize) {
+                Some(v) => {
+                    for j in vec![x as i64 -1, x as i64, x as i64 +1] {
+                        if j < 0 { continue; }
+                        match v.get_mut(j as usize) {
+                            Some(c) => {
+                                if *c == 'w' || *c == 'W' {
+                                    search_stack.push((j as usize, i as usize));
+                                    *c = '.';
+                                }
+                            },
+                            None => continue,
+                        }
+                    }
+                },
+                None => continue,
+            }
+        }
     }
 }
 
-fn find_first_index(val: &Position, vs: &Vec<Position>) -> Option<usize> {
-    for (i, v) in vs.iter().enumerate() {
-        if val == v {
-            return Some(i);
+fn find_first_water(garden: &Vec<Vec<char>>) -> Option<(usize, usize)> {
+    for (i, v) in garden.iter().enumerate() {
+        for (j, c) in v.iter().enumerate() {
+            if *c == 'w' || *c == 'W' {
+                return Some((j, i));
+            }
         }
     }
     None
 }
 
-fn search_next_position(base: Position, list: &Vec<Position>) -> Vec<Position> {
-    list.iter().cloned().filter(|p| base != *p && base.is_next(p)).collect()
-}
 
 // read "10 12" and return (10, 12)
 fn read_header() -> (usize, usize) {
